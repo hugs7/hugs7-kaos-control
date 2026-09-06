@@ -1,7 +1,5 @@
 ## Kaos Control development
 
-.PHONY: build dev dev:backend dev:web run clean clean:web
-
 # Build frontend and backend
 build:
 	cd web && pnpm run build
@@ -15,15 +13,15 @@ dev:
 	@echo ""
 	@echo "Run in separate terminals or use background jobs."
 	@echo ""
-	@echo "Backend:  just dev:backend"
-	@echo "Frontend: just dev:web"
+	@echo "Backend:  just dev-backend"
+	@echo "Frontend: just dev-web"
 
 # Backend dev mode (go run with hot reload)
-dev:backend:
+dev-backend:
 	LOG_LEVEL=debug go run ./cmd/kaos-control -d
 
 # Frontend dev mode (Vite dev server)
-dev:web:
+dev-web:
 	cd web && pnpm run dev
 
 # Run built binary
@@ -31,8 +29,6 @@ run:
 	./dist/kaos-control -d
 
 # Clean build artifacts
-clean: clean:web
+clean:
 	rm -f ./dist/kaos-control
-
-clean:web:
 	rm -rf web/dist
