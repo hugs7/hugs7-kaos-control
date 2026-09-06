@@ -32,14 +32,14 @@ type LlamaCPPInstance struct {
 
 // App is the top-level application configuration (install-dir/config.yaml).
 type App struct {
-	Server            ServerConfig     `yaml:"server"`
-	Auth              AuthConfig       `yaml:"auth"`
-	ProjectsDir       string           `yaml:"projects_dir"`
-	Limits            LimitsConfig     `yaml:"limits"`
-	DataDir           string           `yaml:"data_dir"` // where app DBs live; defaults to projects_dir/../data
-	OllamaInstances   []OllamaInstance `yaml:"ollama_instances,omitempty"`
+	Server            ServerConfig       `yaml:"server"`
+	Auth              AuthConfig         `yaml:"auth"`
+	ProjectsDir       string             `yaml:"projects_dir"`
+	Limits            LimitsConfig       `yaml:"limits"`
+	DataDir           string             `yaml:"data_dir"` // where app DBs live; defaults to projects_dir/../data
+	OllamaInstances   []OllamaInstance   `yaml:"ollama_instances,omitempty"`
 	LlamaCPPInstances []LlamaCPPInstance `yaml:"llama_cpp_instances,omitempty"`
-	Agent             AppAgentConfig   `yaml:"agent"`
+	Agent             AppAgentConfig     `yaml:"agent"`
 }
 
 type ServerConfig struct {
@@ -150,6 +150,32 @@ func LoadApp(path string) (*App, error) {
 	return &cfg, nil
 }
 
+// validateInstances checks that each instance has a unique name and valid URL.
+// Returns an error describing the first validation failure encountered.
+func validateInstances(namePrefix string, instances []struct {
+	Name    string
+	BaseURL string
+}) error {
+	seen := make(map[string]bool)
+	for i, inst := range instances {
+		if inst.Name == "" {
+			return fmt.Errorf("%s[%d]: name must not be empty", namePrefix, i)
+		}
+		if seen[inst.Name] {
+			return fmt.Errorf("%s: duplicate name %q", namePrefix, inst.Name)
+		}
+		seen[inst.Name] = true
+		if inst.BaseURL == "" {
+			return fmt.Errorf("%s[%d] %q: base_url must not be empty", namePrefix, i, inst.Name)
+		}
+		u, err := url.ParseRequestURI(inst.BaseURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			return fmt.Errorf("%s[%d] %q: base_url %q is not a valid http/https URL", namePrefix, i, inst.Name, inst.BaseURL)
+		}
+	}
+	return nil
+}
+
 func validateApp(cfg *App) error {
 	if cfg.Server.Listen == "" {
 		return fmt.Errorf("server.listen must not be empty")
@@ -183,38 +209,11 @@ func validateApp(cfg *App) error {
 		cfg.Agent.RequireBypassPermissions = &v
 	}
 
-	seen := make(map[string]bool, len(cfg.OllamaInstances)+len(cfg.LlamaCPPInstances))
-	for i, inst := range cfg.OllamaInstances {
-		if inst.Name == "" {
-			return fmt.Errorf("ollama_instances[%d]: name must not be empty", i)
-		}
-		if seen[inst.Name] {
-			return fmt.Errorf("ollama_instances: duplicate name %q", inst.Name)
-		}
-		seen[inst.Name] = true
-		if inst.BaseURL == "" {
-			return fmt.Errorf("ollama_instances[%d] %q: base_url must not be empty", i, inst.Name)
-		}
-		u, err := url.ParseRequestURI(inst.BaseURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-			return fmt.Errorf("ollama_instances[%d] %q: base_url %q is not a valid http/https URL", i, inst.Name, inst.BaseURL)
-		}
+	if err := validateInstances("ollama_instances", cfg.OllamaInstances); err != nil {
+		return err
 	}
-	for i, inst := range cfg.LlamaCPPInstances {
-		if inst.Name == "" {
-			return fmt.Errorf("llama_cpp_instances[%d]: name must not be empty", i)
-		}
-		if seen[inst.Name] {
-			return fmt.Errorf("llama_cpp_instances: duplicate name %q", inst.Name)
-		}
-		seen[inst.Name] = true
-		if inst.BaseURL == "" {
-			return fmt.Errorf("llama_cpp_instances[%d] %q: base_url must not be empty", i, inst.Name)
-		}
-		u, err := url.ParseRequestURI(inst.BaseURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-			return fmt.Errorf("llama_cpp_instances[%d] %q: base_url %q is not a valid http/https URL", i, inst.Name, inst.BaseURL)
-		}
+	if err := validateInstances("llama_cpp_instances", cfg.LlamaCPPInstances); err != nil {
+		return err
 	}
 	return nil
 }
@@ -507,8 +506,8 @@ type AgentConfig struct {
 	// If empty, the stub emits one synthetic result event and exits 0.
 	ShellCommand string `yaml:"shell_command,omitempty"`
 	// Llama.cpp inference params (only used when Driver == "llama.cpp").
-	MaxTokens     int     `yaml:"max_tokens,omitempty"`     // max tokens to generate (0 = model default)
-	Temperature   float64 `yaml:"temperature,omitempty"`    // temperature for sampling (0.0 = greedy)
+	MaxTokens   int     `yaml:"max_tokens,omitempty"`  // max tokens to generate (0 = model default)
+	Temperature float64 `yaml:"temperature,omitempty"` // temperature for sampling (0.0 = greedy)
 	// claude-env driver fields (only used when Driver == "claude-env").
 	BaseURL   string `yaml:"base_url,omitempty"`
 	AuthToken string `yaml:"auth_token,omitempty"` // secret — must never be logged or echoed
@@ -517,31 +516,31 @@ type AgentConfig struct {
 // agentConfigRaw is used internally to unmarshal AgentConfig and accept both
 // "role" (canonical) and "roles" (alias) YAML keys for the roles list.
 type agentConfigRaw struct {
-	Name               string            `yaml:"name"`
-	Role               []string          `yaml:"role"`
-	Roles              []string          `yaml:"roles"`
-	Driver             string            `yaml:"driver"`
-	Model              string            `yaml:"model,omitempty"`
-	Endpoint           string            `yaml:"endpoint,omitempty"`
-	AllowedPaths       []string          `yaml:"allowed_write_paths,omitempty"`
-	TimeoutMinutes     int               `yaml:"timeout_minutes,omitempty"`
-	GitIdentity        GitIdentity       `yaml:"git_identity"`
-	PromptTemplates    map[string]string `yaml:"prompt_templates,omitempty"`
-	ActiveStatus       string            `yaml:"active_status,omitempty"`
-	DoneOnSuccess      bool              `yaml:"done_on_success,omitempty"`
-	SourceTypes        []string          `yaml:"source_types,omitempty"`
+	Name                 string            `yaml:"name"`
+	Role                 []string          `yaml:"role"`
+	Roles                []string          `yaml:"roles"`
+	Driver               string            `yaml:"driver"`
+	Model                string            `yaml:"model,omitempty"`
+	Endpoint             string            `yaml:"endpoint,omitempty"`
+	AllowedPaths         []string          `yaml:"allowed_write_paths,omitempty"`
+	TimeoutMinutes       int               `yaml:"timeout_minutes,omitempty"`
+	GitIdentity          GitIdentity       `yaml:"git_identity"`
+	PromptTemplates      map[string]string `yaml:"prompt_templates,omitempty"`
+	ActiveStatus         string            `yaml:"active_status,omitempty"`
+	DoneOnSuccess        bool              `yaml:"done_on_success,omitempty"`
+	SourceTypes          []string          `yaml:"source_types,omitempty"`
 	OllamaInstanceName   string            `yaml:"ollama_instance,omitempty"`
 	OllamaEndpoint       string            `yaml:"ollama_endpoint,omitempty"`
 	LlamaCPPInstanceName string            `yaml:"llama_cpp_instance,omitempty"`
 	BashAllowlist        []string          `yaml:"bash_allowlist,omitempty"`
-	BashDenylist       []string          `yaml:"bash_denylist,omitempty"`
-	OnDenial           string            `yaml:"on_denial,omitempty"`
-	ObserveOnly        bool              `yaml:"observe_only,omitempty"`
-	ShellCommand       string            `yaml:"shell_command,omitempty"`
-	MaxTokens          int               `yaml:"max_tokens,omitempty"`
-	Temperature        float64           `yaml:"temperature,omitempty"`
-	BaseURL            string            `yaml:"base_url,omitempty"`
-	AuthToken          string            `yaml:"auth_token,omitempty"`
+	BashDenylist         []string          `yaml:"bash_denylist,omitempty"`
+	OnDenial             string            `yaml:"on_denial,omitempty"`
+	ObserveOnly          bool              `yaml:"observe_only,omitempty"`
+	ShellCommand         string            `yaml:"shell_command,omitempty"`
+	MaxTokens            int               `yaml:"max_tokens,omitempty"`
+	Temperature          float64           `yaml:"temperature,omitempty"`
+	BaseURL              string            `yaml:"base_url,omitempty"`
+	AuthToken            string            `yaml:"auth_token,omitempty"`
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler so that AgentConfig accepts both
@@ -570,10 +569,10 @@ func (a *AgentConfig) UnmarshalYAML(value *yaml.Node) error {
 	a.BashDenylist = raw.BashDenylist
 	a.OnDenial = raw.OnDenial
 	a.ObserveOnly = raw.ObserveOnly
-	a.ShellCommand         = raw.ShellCommand
-	a.MaxTokens            = raw.MaxTokens
-	a.Temperature          = raw.Temperature
-	a.BaseURL              = raw.BaseURL
+	a.ShellCommand = raw.ShellCommand
+	a.MaxTokens = raw.MaxTokens
+	a.Temperature = raw.Temperature
+	a.BaseURL = raw.BaseURL
 	a.AuthToken = raw.AuthToken
 
 	// Merge "role" and "roles" entries, preserving order and deduplicating.

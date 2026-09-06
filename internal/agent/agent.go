@@ -98,8 +98,8 @@ type Run struct {
 	// ShellCommand is shell-stub driver: command to run (empty = default stub behavior).
 	ShellCommand string
 	// Llama.cpp inference params (only used when Driver == "llama.cpp").
-	MaxTokens     int     // max tokens to generate (0 = model default)
-	Temperature   float64 // temperature for sampling (0.0 = greedy)
+	MaxTokens   int     // max tokens to generate (0 = model default)
+	Temperature float64 // temperature for sampling (0.0 = greedy)
 	// claude-env driver fields (only used when Driver == "claude-env").
 	BaseURL   string // ANTHROPIC_BASE_URL override for the subprocess
 	AuthToken string // ANTHROPIC_AUTH_TOKEN override — secret, must never be logged or echoed
@@ -451,9 +451,9 @@ func New(
 	wf WorkflowEngine,
 	root string,
 	logsDir string,
-	ollamaInstances   []config.OllamaInstance,
+	ollamaInstances []config.OllamaInstance,
 	llamaCPPInstances []config.LlamaCPPInstance,
-	agentCfg          config.AppAgentConfig,
+	agentCfg config.AppAgentConfig,
 ) *Manager {
 	if maxConcurrent <= 0 {
 		maxConcurrent = 4
@@ -627,20 +627,20 @@ func (m *Manager) StartRun(ctx context.Context, agentName, targetPath, role stri
 	}
 
 	run := Run{
-		RunID:              runID,
-		AgentName:          agentName,
-		Role:               role,
-		Driver:             ag.Driver,
-		Model:              ag.Model,
-		PromptText:         prompt,
-		ProjectRoot:        m.root,
-		AllowedPaths:       ag.AllowedPaths,
-		GitIdentity:        identity,
-		LogPath:            m.LogPath(runID),
-		TargetPath:         targetPath,
-		ActiveStatus:       ag.ActiveStatus,
-		DoneOnSuccess:      ag.DoneOnSuccess,
-		TimeoutMinutes:     ag.TimeoutMinutes,
+		RunID:                runID,
+		AgentName:            agentName,
+		Role:                 role,
+		Driver:               ag.Driver,
+		Model:                ag.Model,
+		PromptText:           prompt,
+		ProjectRoot:          m.root,
+		AllowedPaths:         ag.AllowedPaths,
+		GitIdentity:          identity,
+		LogPath:              m.LogPath(runID),
+		TargetPath:           targetPath,
+		ActiveStatus:         ag.ActiveStatus,
+		DoneOnSuccess:        ag.DoneOnSuccess,
+		TimeoutMinutes:       ag.TimeoutMinutes,
 		RelatedTestPath:      relatedTestPath,
 		OllamaInstanceName:   ag.OllamaInstanceName,
 		OllamaEndpoint:       ag.OllamaEndpoint,
