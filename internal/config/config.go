@@ -23,12 +23,18 @@ type OllamaInstance struct {
 	APIKey  string `yaml:"api_key,omitempty"`
 }
 
+func (o OllamaInstance) instanceName() string    { return o.Name }
+func (o OllamaInstance) instanceBaseURL() string { return o.BaseURL }
+
 // LlamaCPPInstance is one registered llama.cpp server shared across all projects.
 type LlamaCPPInstance struct {
 	Name    string `yaml:"name"`
 	BaseURL string `yaml:"base_url"`
 	APIKey  string `yaml:"api_key,omitempty"`
 }
+
+func (l LlamaCPPInstance) instanceName() string    { return l.Name }
+func (l LlamaCPPInstance) instanceBaseURL() string { return l.BaseURL }
 
 // App is the top-level application configuration (install-dir/config.yaml).
 type App struct {
@@ -150,28 +156,29 @@ func LoadApp(path string) (*App, error) {
 	return &cfg, nil
 }
 
+
+
 // validateInstances checks that each instance has a unique name and valid URL.
 // Returns an error describing the first validation failure encountered.
-func validateInstances(namePrefix string, instances []struct {
-	Name    string
-	BaseURL string
-}) error {
+func validateInstances[T interface{ instanceName() string; instanceBaseURL() string }](namePrefix string, instances []T) error {
 	seen := make(map[string]bool)
 	for i, inst := range instances {
-		if inst.Name == "" {
+		name := inst.instanceName()
+		baseURL := inst.instanceBaseURL()
+		if name == "" {
 			return fmt.Errorf("%s[%d]: name must not be empty", namePrefix, i)
 		}
-		if seen[inst.Name] {
-			return fmt.Errorf("%s: duplicate name %q", namePrefix, inst.Name)
+		if baseURL == "" {
+			return fmt.Errorf("%s[%d] %q: base_url must not be empty", namePrefix, i, name)
 		}
-		seen[inst.Name] = true
-		if inst.BaseURL == "" {
-			return fmt.Errorf("%s[%d] %q: base_url must not be empty", namePrefix, i, inst.Name)
-		}
-		u, err := url.ParseRequestURI(inst.BaseURL)
+		u, err := url.ParseRequestURI(baseURL)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-			return fmt.Errorf("%s[%d] %q: base_url %q is not a valid http/https URL", namePrefix, i, inst.Name, inst.BaseURL)
+			return fmt.Errorf("%s[%d] %q: base_url %q is not a valid http/https URL", namePrefix, i, name, baseURL)
 		}
+		if seen[name] {
+			return fmt.Errorf("%s: duplicate name %q", namePrefix, name)
+		}
+		seen[name] = true
 	}
 	return nil
 }
