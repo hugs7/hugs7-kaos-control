@@ -499,7 +499,7 @@ function setUpArchitecture(): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-5) var(--space-6) var(--space-4);
+  padding: var(--space-6) var(--space-6) var(--space-5);
   border-bottom: 1px solid var(--color-border);
 }
 .modal-title {
@@ -519,10 +519,10 @@ function setUpArchitecture(): void {
 }
 .modal-close:hover { color: var(--color-text); }
 .modal-body {
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 .intro {
   margin: 0;
