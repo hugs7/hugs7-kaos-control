@@ -1,0 +1,11 @@
+# pnpm 11+ reads these settings from here, not from package.json's "pnpm" field.
+# Keep in sync with package.json "pnpm" (still used by older pnpm versions).
+allowBuilds:
+  esbuild: true
+  vue-demi: true
+
+overrides:
+  undici: ^7.29.0
+  postcss: ^8.5.18
+  linkify-it: ^5.0.2
+  brace-expansion: ^2.1.2
